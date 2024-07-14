@@ -25,8 +25,6 @@ from tkinter import font
 # Configuration
 
 DEBUG = True               # If True, print debug information. Can also be activated with the "Test" button
-ATISlog = False              # If True then log the ATIS data
-DSClog = False               # If True then log the DSC data
 AUTOscroll = True           # Auto scroll text boxes to last messages
 SAMPLErate = 44100          # Sample rate of soundcard
 CENTERfrequency = 1700      # 1700 for VHF, center frequency for MF - HF (for example 800 or 1000)
@@ -37,15 +35,10 @@ BITrate = 1200.0            # Bitrate 1200 for VHF
 chunkbuffer = 0
 signals = None
 
-ATISdatadir = "./ATISdata/" # Make this directory to save the ATIS ship data
-ATISlogdir = "./ATISlog/"   # Make this directory to save the 24 hour ATIS log files
-DSClogdir = "./DSClog/"     # Make this directory to save the 24 hour DSC log files 
-
 ############################################################################################################################################
 # Initialisation of global variables required in various routines (DO NOT MODIFY THEM!)
 
 CC = []                     # Country Code list
-AUDIOdevin = None           # Audio device for input. None = Windows default. Can be modified with the Audio device button.
 AUDIOsignal1 = []           # Audio trace channel 1
 
 RUNstatus = 0               # 0 stopped, 1 start, 2 running, 3 stop now, 4 stop and restart
@@ -76,95 +69,6 @@ HLINE = "------------------------------------------------"
 
 ############################################################################################################################################
 
-# ================================== Widget routines ========================================== 
-
-# ... Button Start ...
-def Bstart():
-    global RUNstatus
-    global AUDIOsignal1
-   
-    if (RUNstatus == 0):
-        RUNstatus = 1
-
-    AUDIOsignal1 = []
-
-    Buttontext()    # Set colors and text of buttons
-    PrintInfo("START")
-
-
-
-# ... Button Stop ...
-def Bstop():
-    global RUNstatus
-    
-    if (RUNstatus == 1):
-        RUNstatus = 0
-    elif (RUNstatus == 
-    elif (RUNstatus == 2)2):
-        RUNstatus = 3
-    elif (RUNstatus == 3):
-    elif (RUNstatus == 2)
-        RUNstatus = 3
-    elif (RUNstatus == 4):
-        RUNstatus = 3
-
-    Buttontext()    # Set colors and text of buttons
-    PrintInfo("STOP")
-
-
-# ... Button enable or disable ATIS logging ...
-def Batislog():
-    global ATISlog
-    if ATISlog == True:
-        ATISlog = False
-    else:
-        ATISlog = True
-    Buttontext()    # Set colors and text of buttons
-
-
-# ... Button enable or disable DSC logging ...
-def Bdsclog():
-    global DSClog
-    if DSClog == True:
-        DSClog = False
-    else:
-        DSClog = True
-    Buttontext()    # Set colors and text of buttons
-
-  
-#... Button enable or disable Auto scroll ...
-def Bscroll():
-    global AUTOscroll
-    if AUTOscroll == True:
-        AUTOscroll = False
-    else:
-        AUTOscroll = True
-    Buttontext()    # Set colors and text of buttons
-
-
-# ... Button Test ...
-def Btest():
-    global DEBUG
-
-    if DEBUG == False:
-        DEBUG = True
-        PrintInfo("TESTMODE ON")
-    else:
-        DEBUG = False
-        PrintInfo("TESTMODE OFF")
-    Buttontext()    # Set colors and text of buttons
-
-
-# ... Button Clear Info screen ...
-def BCLRinfo():
-    text1.delete(1.0, END)
-
-
-# ... Button Clear Log screen ...
-def BCLRscreen():
-    text2.delete(1.0, END)
-
-
 # =============== The Mainloop =====================
 def MAINloop():             # The Mainloop
     global AUDIOsignal1
@@ -193,8 +97,11 @@ def AUDIOin():   # Read the audio from stdin and store the data into the arrays
     global RXbuffer
     global signals, readsamples
 
+    RUNstatus = 1
+
     # RUNstatus == 1: Initializing the input stream from stdin
     if RUNstatus == 1:
+        print(RUNstatus)
         TRACESopened = 1
         AUDIOsignal1 = []
 
@@ -203,17 +110,19 @@ def AUDIOin():   # Read the audio from stdin and store the data into the arrays
             readsamples = SAMPLErate           # Samples to read
 
             RUNstatus = 2
+
             PrintInfo("Reading audio from stdin")
             txt = "Sample rate: " + str(SAMPLErate) + " samples/s"
             PrintInfo(txt)
         except Exception as e:
             RUNstatus = 0
+       
             PrintInfo("Cannot open Audio Stream")
             txt = f"Error: {str(e)}"
             messagebox.showerror("Cannot open Audio Stream", txt)
 
-        #RUNstatus == 2: Reading audio data from stdin
     if RUNstatus == 2:
+        print(RUNstatus)
         try:
             # Read samples from stdin
             #signals = fileinput.input()
@@ -239,6 +148,7 @@ def AUDIOin():   # Read the audio from stdin and store the data into the arrays
 
     # RUNstatus == 3: Stop; RUNstatus == 4: Stop and restart
     if RUNstatus == 3 or RUNstatus == 4:
+        print(RUNstatus)
         PA.terminate()
         PrintInfo("Audio Stream stopped!")
         if RUNstatus == 3:
@@ -1772,20 +1682,7 @@ def PrintDSCresult(txt):
     txt = txt + "\n"
     text2.insert(END, txt)
     print(f"{txt}")
-    if AUTOscroll == True:
-        text2.yview(END)
-
-    if DSClog == False:
-        return()
-
-    try:
-        filename = time.strftime("%Y%m%d", time.gmtime())          # The time
-        filename = DSClogdir + filename + "-DSClogfile.txt"
-        Wfile = open(filename,'a')          # output file setting
-        Wfile.write(txt)
-        Wfile.close()                       # Close the file
-    except:
-        PrintInfo("DSC logfile append error")
+   
 
 
 # ... Print a string to the Info Textbox 1 and add a line feed ...
@@ -1797,45 +1694,6 @@ def PrintInfo(txt):
         text1.yview(END)
 
 
-# ... Make button text and colors ...
-def Buttontext():
-    global btnstart
-    global btnatislog
-    global btndsclog
-    global btnscroll
-    global btntest
-    global RUNstatus
-    global ATISlog
-    global DSClog
-    global AUTOscroll
-    global DEBUG
-
-
-    if RUNstatus == 1 or RUNstatus == 2: 
-        btnstart['background'] = "green3"
-    else:
-         btnstart['background'] = "red"
-    # btnatislog['text'] =  "ATIS log"
-    if ATISlog == True:
-        btnatislog['background'] = "green3"
-    else:
-        btnatislog['background'] = "red"
-
-    # btndsclog['text'] =  "ATIS log"
-    if DSClog == True:
-        btndsclog['background'] = "green3"
-    else:
-        btndsclog['background'] = "red"
-
-    if DEBUG == False:
-        btntest['background'] = "green3"
-    else:
-        btntest['background'] = "red"
-
-    if AUTOscroll == True:
-        btnscroll['background'] = "green3"
-    else:
-        btnscroll['background'] = "red"
 
 
 # ... Fill the Country Code list ...
@@ -2143,7 +2001,7 @@ def FillCC():
 # ================ Start Make Screen ======================================================
 
 root=Tk()
-root.title("ATISrx-v05b.py (11-01-2024): ATIS Decoder and logger")
+root.title("DSCrx-v01.py")
 
 root.minsize(100, 100)
 
@@ -2167,26 +2025,6 @@ text1.pack(side=TOP, expand=1, fill=X)
 
 scrollbar1.config(command=text1.yview)
 
-btnstart = Button(frame1a, text="START", width=15, command=Bstart)
-btnstart.pack(side=LEFT, padx=5, pady=5)
-
-b = Button(frame1a, text="STOP", width=15, command=Bstop)
-b.pack(side=LEFT, padx=5, pady=5)
-
-btnatislog = Button(frame1a, text="ATIS log", width=12, command=Batislog)
-btnatislog.pack(side=LEFT, padx=5, pady=5)
-
-btndsclog = Button(frame1a, text="DSC log", width=12, command=Bdsclog)
-btndsclog.pack(side=LEFT, padx=5, pady=5)
-
-btnscroll = Button(frame1a, text="Auto Scroll", width=12, command=Bscroll)
-btnscroll.pack(side=LEFT, padx=5, pady=5)
-
-b = Button(frame1a, text="Clear Info", width=15, command=BCLRinfo)
-b.pack(side=RIGHT, padx=5, pady=5)
-
-btntest = Button(frame1a, text="Test level", width=15, command=Btest)
-btntest.pack(side=RIGHT, expand=0, fill=X, padx=2, pady=2)
 
 scrollbar2 = Scrollbar(frame2)
 scrollbar2.pack(side=RIGHT, expand=NO, fill=BOTH)
@@ -2196,33 +2034,12 @@ text2.pack(side=TOP, expand=1, fill=X)
 
 scrollbar2.config(command=text2.yview)
 
-b = Button(frame3, text="CLEAR SCREEN", width=15, command=BCLRscreen)
-b.pack(side=LEFT, expand=1, fill=X, padx=2, pady=2)
+
 
 
 # ================ Main routine ================================================
 root.update()                       # Activate updated screens
 
-try:
-    os.mkdir(ATISdatadir)
-except:
-    print(ATISdatadir + " could not be made or already exists")
-try:
-    os.mkdir(ATISlogdir)
-except:
-    print(ATISlogdir + " could not be made or already exists")
-try:
-    os.mkdir(DSClogdir)
-except:
-    print(DSClogdir + " could not be made or already exists")    
-
-Buttontext()                        # Set colors and text of buttons
-
 FillCC()                            # Make Country Code List
 
-
-PrintInfo("Press START to start")
-
 MAINloop()                          # Start the main  loop
-
-

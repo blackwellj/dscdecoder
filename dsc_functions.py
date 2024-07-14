@@ -428,8 +428,7 @@ def modulate(fmsg, fcarrier, f0, f1, fsample, baud, amp):
     
     return wavestring
    
- 
-    
+
 # do everything needed build the dsc message....
 def build_call(fmt_symbol, a_symbol, cat_symbol, s_symbol, tc1_symbol, tc2_symbol, data_symbol, eos_symbol):
     
@@ -486,7 +485,8 @@ def transmit_dsc(dsc_call, pwr):
     # make some noise...
     
     cpfsk_stream.write(wave)
-    
+    sys.stdout.buffer.write(wave)
+    sys.stdout.buffer.flush()
     return
 
 
