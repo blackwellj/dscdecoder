@@ -20,29 +20,13 @@ import time
 from math import *
 import sys
 
-# quick and dirty CW Ident
-# words per minute
-wpm = 20
-# dot period
-cwdit = 1.2 / wpm
-# dash period
-cwdah = cwdit * 3
 
-w_amp = (2**15) - 1
 
 # define the output audio stream for the main data
 p = pyaudio.PyAudio()
 cpfsk_stream = p.open(format=pyaudio.paInt16, channels=1, rate=44100, output=1)
 
-# make a second stream for the Tune carrier & cw ident
-pt = pyaudio.PyAudio()
-tunestream = pt.open(format=pyaudio.paInt16, channels=1, rate=44100, output=1)
-
-pc = pyaudio.PyAudio()
-cwstream = pc.open(format=pyaudio.paInt16, channels=1, rate=44100, output=1)
-
-
-
+w_amp = (2**15) - 1
 # convert text to DSC symbol value using dictionaries
 fmt_symbol_dict = { "area" : "102", "group" : "114", "all ships" : "116",  "sel" : "120", "dis" : "112"}
 cat_symbol_dict = { "rtn" : "100", "saf" : "108", "urg" : "110", "dis" : "112", "auto" : "123" }
@@ -142,143 +126,11 @@ parity_table = {
 124 : "0011111010", 125 : "1011111001", 126 : "0111111001", 127 : "1111111000" 
 }
 
-cw_table = {
-"A" : ".-",
-"B" : "-...",
-"C" : "-.-.",
-"D" : "-..",
-"E" : ".",
-"F" : "..-.",
-"G" : "--.",
-"H" : "....",
-"I" : "..",
-"J" : ".---",
-"K" : "-.-",
-"L" : ".-..",
-"M" : "--",
-"N" : "-.",
-"O" : "---",
-"P" : ".--.",
-"Q" : "--.-",
-"R" : ".-.",
-"S" : "...",
-"T" : "-",
-"U" : "..-",
-"V" : "...-",
-"W" : ".--",
-"X" : "-..-",
-"Y" : "--.-",
-"Z" : "--..",
-"1" : ".----",
-"2" : "..---",
-"3" : "...--",
-"4" : "....-",
-"5" : ".....",
-"6" : "-....",
-"7" : "--...",
-"8" : "---..",
-"9" : "----.",
-"0" : "-----",
-" " : "",
-"/" : "-..-.",
-"?" : "..--..",
-"+" : ".-.-."
-}
 #####################
 
 area_table = { "ne" : "0", "nw" : "1", "se" : "2", "sw" : "3" }
 #####################
 # function definitions
-#
-
-##############
-# audio generation magic....
-#
-
-## update - CPFSK now in use for data
-# 
-
-## sine() and tune() are for single tone carrier to assist ATU tuning
-# also included in this version are dot & dash tones for CW ID
-# setting the "cspace" and "lspace" amplitudes to non-zero
-# will produce FSK-style CW, as used in Beacons etc,
-
-def sine(frequency, length, rate):
-    length = int(length * rate)
-    factor = float(frequency) * (pi * 2) / rate
-    return numpy.sin(numpy.arange(length) * factor)#
-#
-# Generate a carrier to allow Auto-ATU to re-tune when changing frequency
-# reduced amplitude, 3 seconds at FSK centre frequency
-#
-def tune_carrier(pwr):
-    frequency = 1700
-    length = 3
-    rate = 44100
-    chunks = []
-    chunks.append(sine(frequency, length, rate))
-    chunk = numpy.concatenate(chunks) * (w_amp * pwr)
-    tunestream.write(chunk.astype(numpy.int16).tostring())
-
-def dash(pwr):
-    frequency=1800
-    length=cwdah 
-    rate=44100
-    chunks = []
-    chunks.append(sine(frequency, length, rate))
-    chunk = numpy.concatenate(chunks) *  (w_amp * pwr)
-    cwstream.write(chunk.astype(numpy.int16).tostring())    
-    
-def dot(pwr):
-    frequency=1800
-    length=cwdit
-    rate=44100
-    chunks = []
-    chunks.append(sine(frequency, length, rate))
-    chunk = numpy.concatenate(chunks) *  (w_amp * pwr)
-    cwstream.write(chunk.astype(numpy.int16).tostring())  
-
-def cspace(pwr):
-    frequency=1600
-    length=cwdit
-    rate=44100
-    chunks = []
-    chunks.append(sine(frequency, length, rate))
-    chunk = numpy.concatenate(chunks) *  (w_amp * pwr)
-    cwstream.write(chunk.astype(numpy.int16).tostring())     
-
-def lspace(pwr):
-    frequency=1600
-    length=cwdah
-    rate=44100
-    chunks = []
-    chunks.append(sine(frequency, length, rate))
-    chunk = numpy.concatenate(chunks) *  (w_amp * pwr)
-    cwstream.write(chunk.astype(numpy.int16).tostring())      
-#
-#  end of Audio Magic....  
-################################
-
-def make_call(cw_table, call):
-    callsign = ""
-    for i in call:
-        callsign += cw_table[i]
-        callsign += "s"        
-    return callsign
-        
-def cwid(call, pwr):
-    callsign = make_call(cw_table, call)
-    for i in callsign:
-        if i == "-":
-            dash(pwr)
-            cspace(pwr)
-        elif i == ".":
-            dot(pwr)
-            cspace(pwr)
-        elif i == "s":
-            lspace(pwr)
-            
-###########
 
 
 # split a 9-digit MMSI into 5 2-digit symbols - add a trailing "0" to the fifth symbol
