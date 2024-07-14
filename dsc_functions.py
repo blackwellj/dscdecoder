@@ -30,45 +30,9 @@ cwdah = cwdit * 3
 
 w_amp = (2**15) - 1
 
-
-# Configuration
-CHUNK = 1024        # Number of audio frames per buffer
-FORMAT = pyaudio.paInt16  # 16-bit resolution
-CHANNELS = 1        # Mono audio
-RATE = 44100        # 44.1kHz sampling rate
-
-# Initialize PyAudio
-p = pyaudio.PyAudio()
-
-# Open stream
-stream = p.open(format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK)
-
-print("Streaming audio to stdout...")
-
-try:
-    while True:
-        # Read audio data from the stream
-        data = stream.read(CHUNK, exception_on_overflow=False)
-        # Write audio data to stdout
-        sys.stdout.buffer.write(data)
-        sys.stdout.flush()  # Ensure data is flushed immediately
-except KeyboardInterrupt:
-    print("Streaming stopped.")
-
-# Cleanup
-print("Cleaning up...")
-stream.stop_stream()
-stream.close()
-p.terminate()
-
 # define the output audio stream for the main data
-#cpfsk_stream = p.open(format=pyaudio.paInt16, channels=1, rate=44100, output=1)
-
-
+p = pyaudio.PyAudio()
+cpfsk_stream = p.open(format=pyaudio.paInt16, channels=1, rate=44100, output=1)
 
 # make a second stream for the Tune carrier & cw ident
 pt = pyaudio.PyAudio()
@@ -76,6 +40,8 @@ tunestream = pt.open(format=pyaudio.paInt16, channels=1, rate=44100, output=1)
 
 pc = pyaudio.PyAudio()
 cwstream = pc.open(format=pyaudio.paInt16, channels=1, rate=44100, output=1)
+
+
 
 # convert text to DSC symbol value using dictionaries
 fmt_symbol_dict = { "area" : "102", "group" : "114", "all ships" : "116",  "sel" : "120", "dis" : "112"}

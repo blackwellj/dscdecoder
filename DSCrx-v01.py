@@ -11,6 +11,7 @@ import os
 import numpy as np
 import fcntl
 import threading
+import fileinput
 
 
 from tkinter import *
@@ -23,9 +24,9 @@ from tkinter import font
 ############################################################################################################################################
 # Configuration
 
-DEBUG = False               # If True, print debug information. Can also be activated with the "Test" button
-ATISlog = True              # If True then log the ATIS data
-DSClog = True               # If True then log the DSC data
+DEBUG = True               # If True, print debug information. Can also be activated with the "Test" button
+ATISlog = False              # If True then log the ATIS data
+DSClog = False               # If True then log the DSC data
 AUTOscroll = True           # Auto scroll text boxes to last messages
 SAMPLErate = 44100          # Sample rate of soundcard
 CENTERfrequency = 1700      # 1700 for VHF, center frequency for MF - HF (for example 800 or 1000)
@@ -98,9 +99,11 @@ def Bstop():
     
     if (RUNstatus == 1):
         RUNstatus = 0
-    elif (RUNstatus == 2):
+    elif (RUNstatus == 
+    elif (RUNstatus == 2)2):
         RUNstatus = 3
     elif (RUNstatus == 3):
+    elif (RUNstatus == 2)
         RUNstatus = 3
     elif (RUNstatus == 4):
         RUNstatus = 3
@@ -209,11 +212,14 @@ def AUDIOin():   # Read the audio from stdin and store the data into the arrays
             txt = f"Error: {str(e)}"
             messagebox.showerror("Cannot open Audio Stream", txt)
 
-        # RUNstatus == 2: Reading audio data from stdin
+        #RUNstatus == 2: Reading audio data from stdin
     if RUNstatus == 2:
         try:
             # Read samples from stdin
+            #signals = fileinput.input()
             signals = sys.stdin.buffer.read(readsamples * 2)  # 2 bytes per sample
+
+            print(signals)
 
             if signals:
                 AUDIOsignal1.extend(np.frombuffer(signals, np.int16))

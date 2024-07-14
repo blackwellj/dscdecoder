@@ -16,7 +16,7 @@ import queue
 import time
 from datetime import datetime,timezone
 
-version = "v1.0/ag"
+version = "v1.0/JB"
 
 now = datetime.now(timezone.utc)
 now_utc = now.strftime("%H%M")
@@ -28,17 +28,7 @@ class Application(Frame):
         self.grid()
         self.create_widgets()
         self.dscqueue = queue.Queue()
-        self.tunequeue = queue.Queue()
-        self.cwqueue = queue.Queue()
-        self.tunequeue.put(0)
         self.dscqueue.put(0)
-        self.cwqueue.put(0)
-        t1 = threading.Thread(target = self.tune)
-        t1.daemon = True
-        t1.start()
-        c1 = threading.Thread(target = self.send_cwid)
-        c1.daemon = True
-        c1.start()
         d1 = threading.Thread(target = self.send_dsc)
         d1.daemon = True
         d1.start()
@@ -191,23 +181,7 @@ class Application(Frame):
         self.go_b.grid(row = 11, column = 0, sticky = W+E)
         
         
-        self.tune_b = Button(self, text = "Tune", command = self.tunequeue_on)
-        self.tune_b.grid(row = 14, column = 0, sticky = W+E)
-        
-        '''
-        self.sendcw = IntVar()
-        self.cw_cb = Checkbutton(self, text = "CWID", variable = self.sendcw)
-        self.cw_cb.grid(row = 10, column = 1)
-        self.cw_cb.deselect()
-        '''
-        
-        self.cw_call_e = Entry(self)
-        self.cw_call_e.grid(row = 15, column = 1, columnspan = 2)
-        self.cw_call_e.insert(0, "qtc")
-        
-        self.cw_b = Button(self, text = "Send CW ->", command = self.cwqueue_on)
-        self.cw_b.grid(row = 15, column = 0, sticky = W+E)
-        
+  
         self.test_b = Button(self, text = "Setup Test Call", command = self.test)
         self.test_b.grid(row = 16, column = 0, sticky = W+E)
         
@@ -240,47 +214,6 @@ class Application(Frame):
         self.utc_e.insert(0, now_utc)
         self.freq_var.set(False)
         
-        
-    def tunequeue_on(self):
-        print ("tune queue on")
-        self.tunequeue.put(1)
-    def tunequeue_off(self):
-        print ("tune queue off")
-        self.tunequeue.put(0)
-        
-        
-    def tune(self):
-        
-        while True:
-            t_on = self.tunequeue.get()
-            if t_on == 1:
-                
-                pwr = 0.7
-                tune_carrier(pwr)
-                self.tunequeue_off()
-    
-    
-    def cwqueue_on(self):
-        print ("cw queue on")
-        self.cwqueue.put(1)
-    def cwqueue_off(self):
-        print ("cw queue off")
-        self.cwqueue.put(0)
-    
-    def send_cwid(self):
-        while True:
-            c_on = self.cwqueue.get()
-            if c_on == 1:
-                
-                pwr = 0.7
-                #sendcw = self.sendcw.get()
-                #print ("sendcw ", sendcw)
-                #if sendcw:
-                call = self.cw_call_e.get().upper()
-                cwid(call, pwr)
-                self.cwqueue_off()
-                #else:
-                #    return
             
     def dscqueue_on(self):
         print ("txqueue On")
@@ -494,7 +427,7 @@ class Application(Frame):
 if __name__ == '__main__':
     root = Tk()
    
-    root.geometry("670x750+10+10")
+    root.geometry("640x650")
     root.title("VHF DSC " + version)
     root.resizable(1, 1)
     app = Application(root)
