@@ -1,0 +1,1 @@
+rtl_fm -E dc -F 0 -l 15 -A fast -f 156.525M -s44100 - | sox -t raw -r 44100 -e signed-integer -b 16 -c 1 - distress.wav

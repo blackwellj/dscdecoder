@@ -1,11 +1,25 @@
 # ATISrx-v05b.py (11-01-2024)
 # pa2ohh
 
+import math
+import wave
 import sys
+import struct
 import time
 import pyaudio
+import os
 import numpy as np
-import json
+import fcntl
+import threading
+import fileinput
+
+
+from tkinter import *
+from tkinter import messagebox
+from tkinter import filedialog
+from tkinter import simpledialog
+from tkinter import font
+
 
 ############################################################################################################################################
 # Configuration
@@ -60,16 +74,12 @@ def MAINloop():             # The Mainloop
     global AUDIOsignal1
     global SAMPLErate
     global RUNstatus
-    global MSGdata
 
     while(True): 
         MakeYBY()           # Decode audio data in AUDIOsignal1[] to YBY...
         FINDphasing()       # Search for the phasing signal and the start of a message
         MAKEdata()          # Make the data and call the message decoders
         SELECTdecoder()     # Select and call the decoder depending on the format specifier
-        if RUNstatus == 2:
-            json_message = decode_dsc_message(MSGdata)
-            print(json_message)
 
 # Initialize PyAudio
 PA = pyaudio.PyAudio()
@@ -101,11 +111,15 @@ def AUDIOin():   # Read the audio from stdin and store the data into the arrays
 
             RUNstatus = 2
 
-            
+            PrintInfo("Reading audio from stdin")
+            txt = "Sample rate: " + str(SAMPLErate) + " samples/s"
+            PrintInfo(txt)
         except Exception as e:
             RUNstatus = 0
-
-            
+       
+            PrintInfo("Cannot open Audio Stream")
+            txt = f"Error: {str(e)}"
+            messagebox.showerror("Cannot open Audio Stream", txt)
 
     if RUNstatus == 2:
         print(RUNstatus)
@@ -119,27 +133,33 @@ def AUDIOin():   # Read the audio from stdin and store the data into the arrays
             if signals:
                 AUDIOsignal1.extend(np.frombuffer(signals, np.int16))
 
-            
+                if DEBUG:
+                    txt = f"Audio buffer: Level (-32000 to +32000): {np.amin(AUDIOsignal1)} to {np.amax(AUDIOsignal1)}"
+                    PrintInfo(txt)
+            else:
                 RUNstatus = 4
-              
+                PrintInfo("No audio data received from stdin")
         except IOError:
             pass  # Ignore the IOError exception that arises when no data is available
         except Exception as e:
             RUNstatus = 4
-          
+            PrintInfo(f"Audio buffer reset! Error: {str(e)}")
 
 
     # RUNstatus == 3: Stop; RUNstatus == 4: Stop and restart
     if RUNstatus == 3 or RUNstatus == 4:
         print(RUNstatus)
         PA.terminate()
-       
+        PrintInfo("Audio Stream stopped!")
         if RUNstatus == 3:
             RUNstatus = 0  # Status is stopped
         if RUNstatus == 4:
             RUNstatus = 1  # Status is (re)start
 
         AUDIOsignal1 = []  # Clear audio buffer
+
+    root.update_idletasks()
+    root.update()
 
 # ============= Convert AUDIOsignal1[] audio data to strYBY =======================
 def MakeYBY():              # Read the audio and make strYBY
@@ -319,7 +339,7 @@ def MAKEdata():
     if FS1 != FS2:
         MSGstatus = 3       # Initialize next search as both Format specifiers have to be identical
         if DEBUG == True:
-            print("Format specifiers not identical")
+            PrintInfo("Format specifiers not identical")
         return()
 
     # ... Make the message data and store in MSGdata ...
@@ -351,7 +371,7 @@ def MAKEdata():
 
     if L3Berror == True:
         txt = time.strftime("<%Y%b%d-%H:%M:%S> ", time.gmtime())
-        print(txt + "Error Character Check 3 last bits (2x)")
+        PrintInfo(txt + "Error Character Check 3 last bits (2x)")
         MSGstatus = 3                   # Initialize next search as there was an error that could not be corrected
         return()
 
@@ -363,7 +383,7 @@ def MAKEdata():
         i = i + 1
     if MSGrdta(len(MSGdata)-1) != ECC:  # The last value in the array MSGdata is the Error check symbol
         txt = time.strftime("<%Y%b%d-%H:%M:%S> ", time.gmtime())
-        print(txt + "Data does not match with Error Check Character")
+        PrintInfo(txt + "Data does not match with Error Check Character")
         MSGstatus = 3                   # Initialize next search as there was an error in the error check
         return()
 
@@ -407,7 +427,7 @@ def MAKEdata():
         i = i + 2
     
     if L3Berror == True:
-        print("Error expansion msg, Error Character Check 3 last bits (2x)")
+        PrintInfo("Error expansion msg, Error Character Check 3 last bits (2x)")
         EXPMSGdata = []                 # Clear the EXPMSGdata
         return()
 
@@ -418,7 +438,7 @@ def MAKEdata():
         ECC = ECC ^ EXPMSGrdta(i)
         i = i + 1
     if EXPMSGrdta(len(EXPMSGdata)-1) != ECC:  # The last value in the array EXPMSGdata is the Error check symbol
-        print("Data expansion message does not match with Error Check Character")
+        PrintInfo("Data expansion message does not match with Error Check Character")
         EXPMSGdata = []
         return()
 
@@ -456,7 +476,7 @@ def SELECTdecoder():
         DEC123()
 
     if MSGstatus != 3:                  # The MSGstatus is not reset to 3, so no valid or supported format specifier
-        print("Error or no supported format specifier: " + str(MSGrdta(0)))
+        PrintInfo("Error or no supported format specifier: " + str(MSGrdta(0)))
 
     if len(EXPMSGdata) != 0:            # Decode the extension message
         DSCExpansion821()
@@ -679,12 +699,12 @@ def DEC121():
     
     if CallSign[0:1] != "9":
         txt = "ERROR!! MMSI does not start with 9 for Inland Waterways"
-        print(txt)
+        PrintInfo(txt)
         return()
     
     if MSGrdta(3) > 26:
         txt = "ERROR: Callsign does not start with a letter (1 - 26)"
-        print(txt)
+        PrintInfo(txt)
         return()
 
     ATIStxt = time.strftime("<%Y%b%d-%H:%M:%S>", time.gmtime())          # The time
@@ -771,7 +791,7 @@ def DEC121():
     # T2 = time.time();print(T2-T1)
     
     ATIStxt = ATIStxt + " " + strPR + CallSign[4:] + "  Country: " + CallSign[1:4] + " (" + strCC + ")"
-    print(ATIStxt)
+    PrintResult(ATIStxt)
 
     MSGstatus = 3
 
@@ -789,7 +809,7 @@ def DEC121():
         Wfile.write(ATIStxt + "\n")
         Wfile.close()                       # Close the file
     except:
-        print("File append error: " + filename)
+        PrintInfo("File append error: " + filename)
 
     try:
         filename = time.strftime("%Y%m%d", time.gmtime())          # The time
@@ -798,7 +818,7 @@ def DEC121():
         Wfile.write(ATIStxt + "\n")
         Wfile.close()                       # Close the file
     except:
-        print("File append error: " + filename)
+        PrintInfo("File append error: " + filename)
 
 
 # ============================ Decode Expansion message ==============================
@@ -1643,6 +1663,16 @@ def Lzeroes(s, k):
         s = "0" + s
     return(s)
 
+
+# ... Print a string to the Textbox 2 and add a line feed ...
+def PrintResult(txt):
+    global AUTOscroll
+    txt = txt + "\n"
+    text2.insert(END, txt)
+    if AUTOscroll == True:
+        text2.yview(END)
+
+
 # ... Print a DSC message string to the Textbox 2 and add a line feed and save to the DSC logfile if enabled ...
 def PrintDSCresult(txt):
     global DSClog
@@ -1650,8 +1680,22 @@ def PrintDSCresult(txt):
     global AUTOscroll
    
     txt = txt + "\n"
+    text2.insert(END, txt)
     print(f"{txt}")
    
+
+
+# ... Print a string to the Info Textbox 1 and add a line feed ...
+def PrintInfo(txt):
+    global AUTOscroll
+    txt = txt + "\n"
+    text1.insert(END, txt)
+    if AUTOscroll == True:
+        text1.yview(END)
+
+
+
+
 # ... Fill the Country Code list ...
 def FillCC():
     global CC
@@ -1954,81 +1998,47 @@ def FillCC():
     CC[770]="Uruguay (Eastern Republic of)"
     CC[775]="Venezuela (Bolivarian Republic of)"
 
-    # ======================= Decode the DSC MSG_DATA to a JSON message =======================
-def decode_dsc_message(dsc_array):
-    if len(dsc_array) < 22:
-        raise ValueError("Array does not contain enough elements to decode a DSC message.")
-    
-    mmsi = ''.join([str(x) for x in dsc_array[0:9]])
-    
-    category_code = dsc_array[9]
-    category_map = {
-        100: "Routine",
-        108: "Safety",
-        110: "Urgency",
-        112: "Distress"
-    }
-    category = category_map.get(category_code, "Unknown")
-    
-    # Decode nature of distress if category is Distress
-    nature_of_distress = None
-    if category == "Distress":
-        nature_of_distress = dsc_array[10]
-        nature_of_distress_map = {
-            100: "Undesignated",
-            101: "Fire, explosion",
-            102: "Flooding",
-            103: "Collision",
-            104: "Grounding",
-            105: "Listing, in danger of capsizing",
-            106: "Sinking",
-            107: "Disabled and adrift",
-            108: "Abandoning ship",
-            109: "Man overboard",
-            110: "Piracy/armed attack",
-            112: "Medical assistance"
-        }
-        nature_of_distress = nature_of_distress_map.get(nature_of_distress, "Unknown")
-    
-    # Decode Latitude
-    lat_deg = dsc_array[11]
-    lat_min = dsc_array[12]
-    lat_dir = 'N' if dsc_array[13] <= 89 else 'S'
-    latitude = f"{lat_deg}°{lat_min}'{lat_dir}"
-    
-    # Decode Longitude
-    lon_deg = dsc_array[14]
-    lon_min = dsc_array[15]
-    lon_dir = 'E' if dsc_array[16] <= 179 else 'W'
-    longitude = f"{lon_deg}°{lon_min}'{lon_dir}"
-    
-    # UT Time
-    utc_hour = dsc_array[17]
-    utc_minute = dsc_array[18]
-    utc_time = f"{utc_hour:02}:{utc_minute:02}"
-    
-    # Additional Data (example, EOS, VHF channels etc.)
-    eos = dsc_array[19]
-    vhf_rx_channel = dsc_array[20]
-    vhf_tx_channel = dsc_array[21]
-    
-    message = {
-        "MMSI": mmsi,
-        "Category": category,
-        "Latitude": latitude,
-        "Longitude": longitude,
-        "UTC Time": utc_time,
-        "EOS": eos,
-        "VHF RX Channel": vhf_rx_channel,
-        "VHF TX Channel": vhf_tx_channel
-    }
-    
-    if nature_of_distress:
-        message["Nature of Distress"] = nature_of_distress
-    
-    return json.dumps(message, indent=4)
+# ================ Start Make Screen ======================================================
+
+root=Tk()
+root.title("DSCrx-v01.py")
+
+root.minsize(100, 100)
+
+frame1 = Frame(root, background="blue", borderwidth=5, relief=RIDGE)
+frame1.pack(side=TOP, expand=1, fill=X)
+
+frame1a = Frame(root, background="blue", borderwidth=5, relief=RIDGE)
+frame1a.pack(side=TOP, expand=1, fill=X)
+
+frame2 = Frame(root, background="black", borderwidth=5, relief=RIDGE)
+frame2.pack(side=TOP, expand=1, fill=X)
+
+frame3 = Frame(root, background="red", borderwidth=5, relief=RIDGE)
+frame3.pack(side=TOP, expand=1, fill=X)
+
+scrollbar1 = Scrollbar(frame1)
+scrollbar1.pack(side=RIGHT, expand=NO, fill=BOTH)
+
+text1 = Text(frame1, height=5, width=150, yscrollcommand=scrollbar1.set)
+text1.pack(side=TOP, expand=1, fill=X)
+
+scrollbar1.config(command=text1.yview)
+
+
+scrollbar2 = Scrollbar(frame2)
+scrollbar2.pack(side=RIGHT, expand=NO, fill=BOTH)
+
+text2 = Text(frame2, height=30, width=150, yscrollcommand=scrollbar2.set)
+text2.pack(side=TOP, expand=1, fill=X)
+
+scrollbar2.config(command=text2.yview)
+
+
+
 
 # ================ Main routine ================================================
+root.update()                       # Activate updated screens
 
 FillCC()                            # Make Country Code List
 
